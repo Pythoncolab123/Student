@@ -1,4 +1,3 @@
-pip install mysql-connector-python
 import mysql.connector
 UG=mysql.connector.connect(host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
                              user="31CJB1UZRWYNAok.root",
