@@ -1,21 +1,30 @@
 import streamlit as st
 import pandas as pd
 import mysql.connector
+import os
 
 # --- DB Config ---
-db = mysql.connector.connect(
-    host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
-    user="31CJB1UZRWYNAok.root",
-    password="EXpTVqVAmtIV7SY8",
-    port=4000,
-    database="UG"
-)
-cursor = db.cursor(dictionary=True)
+try:
+    db = mysql.connector.connect(
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASS"),
+        port=int(os.getenv("DB_PORT", 4000)),
+        database=os.getenv("DB_NAME")
+    )
+    cursor = db.cursor(dictionary=True)
+except mysql.connector.Error as err:
+    st.error(f"❌ Database connection failed: {err}")
+    st.stop()
 
 # --- Query helper ---
 def run_query(query):
-    cursor.execute(query)
-    return pd.DataFrame(cursor.fetchall())
+    try:
+        cursor.execute(query)
+        return pd.DataFrame(cursor.fetchall())
+    except mysql.connector.Error as err:
+        st.error(f"❌ Query failed: {err}")
+        return pd.DataFrame()
 
 # --- Sidebar filters ---
 st.sidebar.title("🎛 Filters")
@@ -27,10 +36,13 @@ st.title("🎓 Student Placement Dashboard")
 
 # --- Students ---
 student_query = "SELECT * FROM Students"
+filters = []
 if batch:
-    student_query += f" WHERE course_batch = '{batch}'"
-elif city:
-    student_query += f" WHERE city = '{city}'"
+    filters.append(f"course_batch = '{batch}'")
+if city:
+    filters.append(f"city = '{city}'")
+if filters:
+    student_query += " WHERE " + " AND ".join(filters)
 
 students_df = run_query(student_query)
 st.subheader("👥 Students")
