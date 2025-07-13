@@ -1,80 +1,75 @@
+# streamlit_app.py
 import streamlit as st
 import pandas as pd
 import mysql.connector
-import os
 
-# --- DB Config ---
-try:
-    db = mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASS"),
-        port=int(os.getenv("DB_PORT", 4000)),
-        database=os.getenv("DB_NAME")
+# --- Database Connection ---
+def get_connection():
+    return mysql.connector.connect(
+        host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
+        user="31CJB1UZRWYNAok.root",
+        password="EXpTVqVAmtIV7SY8",
+        port=4000,
+        database="UG"
     )
-    cursor = db.cursor(dictionary=True)
-except mysql.connector.Error as err:
-    st.error(f"❌ Database connection failed: {err}")
-    st.stop()
 
-# --- Query helper ---
+# --- Query Execution Helper ---
 def run_query(query):
-    try:
-        cursor.execute(query)
-        return pd.DataFrame(cursor.fetchall())
-    except mysql.connector.Error as err:
-        st.error(f"❌ Query failed: {err}")
-        return pd.DataFrame()
+    db = get_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute(query)
+    results = pd.DataFrame(cursor.fetchall())
+    cursor.close()
+    db.close()
+    return results
 
-# --- Sidebar filters ---
-st.sidebar.title("🎛 Filters")
+# --- Streamlit UI ---
+st.set_page_config(page_title="UG Placement Dashboard", layout="wide")
+st.title("🎓 UG Student Placement Dashboard")
+
+# --- Sidebar Filters ---
+st.sidebar.header("🔍 Filter Students")
 batch = st.sidebar.text_input("Batch (e.g. Batch-21)")
 city = st.sidebar.text_input("City")
 
-# --- Header ---
-st.title("🎓 Student Placement Dashboard")
-
-# --- Students ---
-student_query = "SELECT * FROM Students"
-filters = []
+# --- Students Table ---
+students_query = "SELECT * FROM Students"
 if batch:
-    filters.append(f"course_batch = '{batch}'")
-if city:
-    filters.append(f"city = '{city}'")
-if filters:
-    student_query += " WHERE " + " AND ".join(filters)
+    students_query += f" WHERE course_batch = '{batch}'"
+elif city:
+    students_query += f" WHERE city = '{city}'"
 
-students_df = run_query(student_query)
-st.subheader("👥 Students")
-st.dataframe(students_df)
+students_df = run_query(students_query)
+st.subheader("👥 Student Info")
+st.dataframe(students_df, use_container_width=True)
 
-# --- Programming Data ---
-st.subheader("💻 Programming Stats")
+# --- Programming Table ---
+st.subheader("💻 Programming Performance")
 prog_df = run_query("""
-    SELECT s.student_id, s.name, p.language, p.problems_solved, p.latest_project_score
+    SELECT s.student_id, s.name, p.language, p.problems_solved, 
+           p.assessments_completed, p.mini_projects, 
+           p.certifications_earned, p.latest_project_score
     FROM Students s
     JOIN Programming p ON s.student_id = p.student_id
 """)
-st.dataframe(prog_df)
+st.dataframe(prog_df, use_container_width=True)
 
-# --- Soft Skills ---
-st.subheader("🧠 Soft Skills")
+# --- Soft Skills Table ---
+st.subheader("🧠 Soft Skills Scores")
 skills_df = run_query("""
-    SELECT s.student_id, s.name, ss.communication, ss.teamwork, ss.leadership
+    SELECT s.student_id, s.name, ss.communication, ss.teamwork, 
+           ss.presentation, ss.leadership, ss.critical_thinking, ss.interpersonal_skills
     FROM Students s
     JOIN SoftSkills ss ON s.student_id = ss.student_id
 """)
-st.dataframe(skills_df)
+st.dataframe(skills_df, use_container_width=True)
 
-# --- Placements ---
+# --- Placement Table ---
 st.subheader("🏢 Placement Status")
 placement_df = run_query("""
-    SELECT s.student_id, s.name, p.placement_status, p.company_name
+    SELECT s.student_id, s.name, p.mock_interview_score, 
+           p.internships_completed, p.placement_status, p.company_name
     FROM Students s
     JOIN Placements p ON s.student_id = p.student_id
 """)
-st.dataframe(placement_df)
-
-# --- Clean up ---
-cursor.close()
-db.close()
+st.dataframe(placement_df, use_container_width=True)
