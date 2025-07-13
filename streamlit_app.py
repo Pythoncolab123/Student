@@ -27,12 +27,18 @@ def run_query(query):
 st.set_page_config(page_title="UG Student Placement Dashboard", layout="wide")
 st.title("🎓 UG Student Placement Dashboard")
 
+# --- Fetch dropdown values ---
+batches = run_query("SELECT DISTINCT course_batch FROM Students")["course_batch"].dropna().tolist()
+cities = run_query("SELECT DISTINCT city FROM Students")["city"].dropna().tolist()
+languages = run_query("SELECT DISTINCT language FROM Programming")["language"].dropna().tolist()
+statuses = run_query("SELECT DISTINCT placement_status FROM Placements")["placement_status"].dropna().tolist()
+
 # --- Filters ---
 st.sidebar.header("🔍 Filters")
-batch = st.sidebar.text_input("Batch (e.g. Batch-21)")
-city = st.sidebar.text_input("City")
-language = st.sidebar.text_input("Programming Language")
-placement_status = st.sidebar.text_input("Placement Status")
+batch = st.sidebar.selectbox("Batch", options=["All"] + batches)
+city = st.sidebar.selectbox("City", options=["All"] + cities)
+language = st.sidebar.selectbox("Programming Language", options=["All"] + languages)
+placement_status = st.sidebar.selectbox("Placement Status", options=["All"] + statuses)
 search_name = st.sidebar.text_input("Search by Name")
 search_email = st.sidebar.text_input("Search by Email")
 
@@ -40,9 +46,9 @@ search_email = st.sidebar.text_input("Search by Email")
 student_query = "SELECT * FROM Students"
 conditions = []
 
-if batch:
+if batch != "All":
     conditions.append(f"course_batch = '{batch}'")
-if city:
+if city != "All":
     conditions.append(f"city = '{city}'")
 if search_name:
     conditions.append(f"name LIKE '%{search_name}%'")
@@ -64,7 +70,7 @@ prog_query = """
     FROM Students s
     JOIN Programming p ON s.student_id = p.student_id
 """
-if language:
+if language != "All":
     prog_query += f" WHERE p.language = '{language}'"
 
 prog_df = run_query(prog_query)
@@ -88,7 +94,7 @@ placement_query = """
     FROM Students s
     JOIN Placements p ON s.student_id = p.student_id
 """
-if placement_status:
+if placement_status != "All":
     placement_query += f" WHERE p.placement_status = '{placement_status}'"
 
 placement_df = run_query(placement_query)
